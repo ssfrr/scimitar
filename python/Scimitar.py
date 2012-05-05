@@ -27,17 +27,10 @@ def l2norm(vect):
    return norm
 
 def getSlices(stftFrames, bins, maskFrames):
-   slices = []
-   shadow = 0
+   results = []
    for i in range(len(stftFrames[0])-1):
-      if shadow == 0 and \
-            l2norm(stftFrames[:,i+1] - stftFrames[:,i]) > diffThreshold and \
-            l2norm(stftFrames[:,i+1]) > l2norm(stftFrames[:,i]):
-         slices.append(bins[i+1])
-         shadow = maskFrames
-      elif shadow > 0:
-         shadow = shadow - 1
-   return slices
+      results.append(l2norm(stftFrames[:,i+1] - stftFrames[:,i]))
+   return results
 
 def main():
    audioFiles = glob.glob("testSamples/*")
@@ -47,11 +40,11 @@ def main():
       fs = snd.samplerate
       (frames, freqs, bins, ax) = mp.specgram(data, frameSize, 
             noverlap=(frameSize/2), Fs=fs)
+      mp.subplot(211)
       mp.plot(np.linspace(0,float(snd.nframes)/fs, snd.nframes),
             data * 10000+10000, alpha=0.4)
-      for time in getSlices(frames, bins, 20):
-         mp.axvline(time, color="red", alpha=0.5)
-         print time
+      mp.subplot(212)
+      mp.plot(bins[0:-1], getSlices(frames, bins, 20))
       mp.show()
 
 if __name__ == "__main__":
