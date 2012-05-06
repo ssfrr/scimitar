@@ -3,10 +3,15 @@ import System.IO (hGetContents, Handle, openFile, IOMode(..))
 import qualified Sound.File.Sndfile.Buffer.StorableVector as BV
 import qualified Data.StorableVector as V
 import qualified Graphics.Gnuplot.Simple as GP
-import qualified Array as A
+import Array as A
+import Complex
 import DSP.Basic
+import Numeric.Transform.Fourier.FFT
+import DrawSpec
 
 sndFileName = "../testSamples/5650__pushtobreak__valihaloop5-5.aif"
+testArr :: A.Array Int Double
+testArr = A.array (0,16) [(i, fromIntegral (i*i)) | i <- [0..15]]
 
 readWavFile :: String -> IO (V.Vector Double)
 readWavFile fileName = do
@@ -19,25 +24,39 @@ arrayFromVector vect =
    let l = V.length vect - 1 in
       A.array (0, l) (zip [0..l] (V.unpack vect))
 
-getMax :: V.Vector Double -> Double
-getMax vect = V.maximum (V.map abs (vect))
-
-getFrames :: V.Vector Double -> Int -> Int -> [V.Vector Double]
-getFrames inVect frameSize hop =
-   [getFrame inVect start frameSize | start <- [0, hop .. (V.length inVect)]]
-
-getFrame :: V.Vector Double -> Int -> Int -> V.Vector Double
-getFrame inVect start length =
-   V.append subString padding
+getFrames :: A.Array Int Double -> Int -> Int -> [A.Array Int Double]
+getFrames inArr frameSize hop =
+   [getFrame inArr start frameSize | start <- [0, hop .. l-1]]
    where
-      subString = vectSlice start length inVect
-      padding = V.replicate (length - (V.length subString)) 0 :: V.Vector Double
+      (_,l) = A.bounds inArr
 
-vectSlice :: Int -> Int -> V.Vector Double -> V.Vector Double
-vectSlice start len x = V.take len $ V.drop start x
+-- getFrame uses ixmap to create a new array that's a slice of
+-- the old one. The bounds of the new array are 0 and the length,
+-- the transformation function to get an index into the original
+-- array from the new array is just an offset operation.
+getFrame :: A.Array Int Double -> Int -> Int -> A.Array Int Double
+getFrame inVect start length = pad slice length
+   where
+      slice = A.ixmap (0, l - 1) (+ start) inVect
+      l = min length (end - start)
+      (_,end) = A.bounds inVect
+
+getMagnitude :: [A.Array Int (Complex Double)] -> [A.Array Int Double]
+getMagnitude frames = map getFrameMagnitude frames
+
+getFrameMagnitude :: A.Array Int (Complex Double) -> A.Array Int Double
+getFrameMagnitude frame = A.array (0,(l-1)`div`2) [(i,log (magnitude (frame!(i+(l-1)`div`2)) + 1)) | i <- [0..((l-1)`div`2)]]
+   where (_,l) = A.bounds frame
 
 main :: IO ()
 main = do
    audioVect <- readWavFile sndFileName
-   print $ arrayFromVector audioVect
+   --print $ getFrames testArr 4 2
+   drawSpec (map (getFrameMagnitude . rfft) (getFrames (arrayFromVector audioVect) 1024 512)) "spec.png"
    --GP.plotList [] (V.unpack audioVect)
+
+-- 1. Load a sound file - check
+-- 2. convert to Array - check
+-- 3. slice Array into frames
+-- 4. run FFT on each frame
+-- 5. display FFT frames as spectrogram
