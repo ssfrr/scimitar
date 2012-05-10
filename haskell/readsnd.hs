@@ -1,8 +1,6 @@
 import qualified Sound.File.Sndfile as Snd
-import System.IO (hGetContents, Handle, openFile, IOMode(..))
 import qualified Sound.File.Sndfile.Buffer.StorableVector as BV
 import qualified Data.StorableVector as V
-import qualified Graphics.Gnuplot.Simple as GP
 import Array as A
 import Complex
 import DSP.Basic
@@ -10,8 +8,6 @@ import Numeric.Transform.Fourier.FFT
 import DrawSpec
 
 sndFileName = "../testSamples/5650__pushtobreak__valihaloop5-5.aif"
-testArr :: A.Array Int Double
-testArr = A.array (0,16) [(i, fromIntegral (i*i)) | i <- [0..15]]
 
 readWavFile :: String -> IO (V.Vector Double)
 readWavFile fileName = do
@@ -51,12 +47,4 @@ getFrameMagnitude frame = A.array (0,(l-1)`div`2) [(i,log (magnitude (frame!(i+(
 main :: IO ()
 main = do
    audioVect <- readWavFile sndFileName
-   --print $ getFrames testArr 4 2
    drawSpec (map (getFrameMagnitude . rfft) (getFrames (arrayFromVector audioVect) 1024 512)) "spec.png"
-   --GP.plotList [] (V.unpack audioVect)
-
--- 1. Load a sound file - check
--- 2. convert to Array - check
--- 3. slice Array into frames
--- 4. run FFT on each frame
--- 5. display FFT frames as spectrogram
